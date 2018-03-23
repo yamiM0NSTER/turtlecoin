@@ -519,12 +519,17 @@ uint32_t BlockchainCache::getTimestampLowerBoundBlockIndex(uint64_t timestamp) c
   assert(!blockInfos.empty());
 
   auto& index = blockInfos.get<BlockIndexTag>();
+  logger(Logging::INFO) << "**  BlockchainCache::getTimestampLowerBoundBlockIndex invoked so we are probably in a temp split situation.\n";
+  printf("index.front().TS:%lu  TS:%lu   index.back().timestamp:%lu\n",index.front().timestamp,timestamp,index.back().timestamp);
+
+  //index.back is the last block so if we are beyond that, something is wrong
   if (index.back().timestamp < timestamp) {
     // we don't have it
     throw std::runtime_error("no blocks for this timestamp, too large");
   }
 
   if (index.front().timestamp < timestamp) {
+    printf("getTimestampLowerBoundBlockIndex, CP1\n");
     // we know the timestamp is in current segment for sure
     auto bound =
         std::lower_bound(index.begin(), index.end(), timestamp,
@@ -537,13 +542,33 @@ uint32_t BlockchainCache::getTimestampLowerBoundBlockIndex(uint64_t timestamp) c
   // so we ask parent. If it doesn't have it then index.front() is the block being searched for.
 
   if (parent == nullptr) {
+    printf("getTimestampLowerBoundBlockIndex, CP2\n");
     // if given timestamp is less or equal genesis block timestamp
     return 0;
   }
 
+
+ try {
+
   uint32_t blockIndex = parent->getTimestampLowerBoundBlockIndex(timestamp);
-  return blockIndex == INVALID_BLOCK_INDEX ? blockIndex : startIndex;
-}
+  printf("AskParent  getTimestampLowerBoundBlockIndex, blockIndex:%lu   startIndex:%lu    timestamp:%lu\n",blockIndex,startIndex,timestamp);
+
+// corrected this so it makes logical sense. Return the Block Index if we find it otherwise ret startIndex if get get some crazy invalid_block_index value
+    if (blockIndex == INVALID_BLOCK_INDEX) {
+    printf("### Actually got a INVALID_BLOCK_INDEX situation. Will return startIndex\n");
+    return startIndex;
+    }
+    else
+    return blockIndex;
+
+  }
+ catch (std::runtime_error&) {
+  logger(Logging::INFO) << "Encountered Rare getTimestampLowerBoundBlockIndex() error.";
+
+     // parent didn't have the block, so index.front() must be the block we're looking for
+     return startIndex;
+   }
+ }
 
 bool BlockchainCache::getTransactionGlobalIndexes(const Crypto::Hash& transactionHash,
                                                   std::vector<uint32_t>& globalIndexes) const {
