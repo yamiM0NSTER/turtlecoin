@@ -55,7 +55,7 @@ class ILogger {
 public:
   const static char COLOR_DELIMETER;
 
-  const static std::array<std::string, 6> LEVEL_NAMES;
+  const static std::array<std::string, 7> LEVEL_NAMES;
 
   virtual void operator()(const std::string& category, Level level, boost::posix_time::ptime time, const std::string& body) = 0;
 };
