@@ -836,51 +836,63 @@ namespace {
 }
 
 bool RpcServer::on_getblocktemplate(const COMMAND_RPC_GETBLOCKTEMPLATE::request& req, COMMAND_RPC_GETBLOCKTEMPLATE::response& res) {
-  if (req.reserve_size > TX_EXTRA_NONCE_MAX_COUNT) {
-    throw JsonRpc::JsonRpcError{ CORE_RPC_ERROR_CODE_TOO_BIG_RESERVE_SIZE, "To big reserved size, maximum 255" };
-  }
+	logger(RPCLOGS) << "on_getblocktemplate -- START";
+	if (req.reserve_size > TX_EXTRA_NONCE_MAX_COUNT) {
+		logger(RPCLOGS) << "To big reserved size, maximum 255";
+		throw JsonRpc::JsonRpcError{ CORE_RPC_ERROR_CODE_TOO_BIG_RESERVE_SIZE, "To big reserved size, maximum 255" };
+	}
 
-  AccountPublicAddress acc = boost::value_initialized<AccountPublicAddress>();
+	AccountPublicAddress acc = boost::value_initialized<AccountPublicAddress>();
 
-  if (!req.wallet_address.size() || !m_core.getCurrency().parseAccountAddressString(req.wallet_address, acc)) {
-    throw JsonRpc::JsonRpcError{ CORE_RPC_ERROR_CODE_WRONG_WALLET_ADDRESS, "Failed to parse wallet address" };
-  }
+	if (!req.wallet_address.size() || !m_core.getCurrency().parseAccountAddressString(req.wallet_address, acc)) {
+		logger(RPCLOGS) << "Failed to parse wallet address";
+		throw JsonRpc::JsonRpcError{ CORE_RPC_ERROR_CODE_WRONG_WALLET_ADDRESS, "Failed to parse wallet address" };
+	}
 
-  BlockTemplate blockTemplate = boost::value_initialized<BlockTemplate>();
-  CryptoNote::BinaryArray blob_reserve;
-  blob_reserve.resize(req.reserve_size, 0);
+	logger(RPCLOGS) << req.wallet_address;
 
-  if (!m_core.getBlockTemplate(blockTemplate, acc, blob_reserve, res.difficulty, res.height)) {
-    logger(ERROR) << "Failed to create block template";
-    throw JsonRpc::JsonRpcError{ CORE_RPC_ERROR_CODE_INTERNAL_ERROR, "Internal error: failed to create block template" };
-  }
+	BlockTemplate blockTemplate = boost::value_initialized<BlockTemplate>();
+	CryptoNote::BinaryArray blob_reserve;
+	blob_reserve.resize(req.reserve_size, 0);
 
-  BinaryArray block_blob = toBinaryArray(blockTemplate);
-  PublicKey tx_pub_key = CryptoNote::getTransactionPublicKeyFromExtra(blockTemplate.baseTransaction.extra);
-  if (tx_pub_key == NULL_PUBLIC_KEY) {
-    logger(ERROR) << "Failed to find tx pub key in coinbase extra";
-    throw JsonRpc::JsonRpcError{ CORE_RPC_ERROR_CODE_INTERNAL_ERROR, "Internal error: failed to find tx pub key in coinbase extra" };
-  }
+	if (!m_core.getBlockTemplate(blockTemplate, acc, blob_reserve, res.difficulty, res.height)) {
+		logger(RPCLOGS) << "Internal error: failed to create block template";
+		//logger(ERROR) << "Failed to create block template";
+		throw JsonRpc::JsonRpcError{ CORE_RPC_ERROR_CODE_INTERNAL_ERROR, "Internal error: failed to create block template" };
+	}
 
-  if (0 < req.reserve_size) {
-    res.reserved_offset = slow_memmem((void*)block_blob.data(), block_blob.size(), &tx_pub_key, sizeof(tx_pub_key));
-    if (!res.reserved_offset) {
-      logger(ERROR) << "Failed to find tx pub key in blockblob";
-      throw JsonRpc::JsonRpcError{ CORE_RPC_ERROR_CODE_INTERNAL_ERROR, "Internal error: failed to create block template" };
-    }
-    res.reserved_offset += sizeof(tx_pub_key) + 3; //3 bytes: tag for TX_EXTRA_TAG_PUBKEY(1 byte), tag for TX_EXTRA_NONCE(1 byte), counter in TX_EXTRA_NONCE(1 byte)
-    if (res.reserved_offset + req.reserve_size > block_blob.size()) {
-      logger(ERROR) << "Failed to calculate offset for reserved bytes";
-      throw JsonRpc::JsonRpcError{ CORE_RPC_ERROR_CODE_INTERNAL_ERROR, "Internal error: failed to create block template" };
-    }
-  } else {
-    res.reserved_offset = 0;
-  }
+	BinaryArray block_blob = toBinaryArray(blockTemplate);
+	PublicKey tx_pub_key = CryptoNote::getTransactionPublicKeyFromExtra(blockTemplate.baseTransaction.extra);
+	if (tx_pub_key == NULL_PUBLIC_KEY) {
+		logger(RPCLOGS) << "Internal error: failed to find tx pub key in coinbase extra";
+		//logger(ERROR) << "Failed to find tx pub key in coinbase extra";
+		throw JsonRpc::JsonRpcError{ CORE_RPC_ERROR_CODE_INTERNAL_ERROR, "Internal error: failed to find tx pub key in coinbase extra" };
+	}
 
-  res.blocktemplate_blob = toHex(block_blob);
-  res.status = CORE_RPC_STATUS_OK;
+	if (0 < req.reserve_size) {
+		res.reserved_offset = slow_memmem((void*)block_blob.data(), block_blob.size(), &tx_pub_key, sizeof(tx_pub_key));
+		if (!res.reserved_offset) {
+			logger(RPCLOGS) << "Internal error: failed to create block template";
+			//logger(ERROR) << "Failed to find tx pub key in blockblob";
+			throw JsonRpc::JsonRpcError{ CORE_RPC_ERROR_CODE_INTERNAL_ERROR, "Internal error: failed to create block template" };
+		}
+		res.reserved_offset += sizeof(tx_pub_key) + 3; //3 bytes: tag for TX_EXTRA_TAG_PUBKEY(1 byte), tag for TX_EXTRA_NONCE(1 byte), counter in TX_EXTRA_NONCE(1 byte)
+		if (res.reserved_offset + req.reserve_size > block_blob.size()) {
+			logger(RPCLOGS) << "Internal error: failed to create block template";
+			//logger(ERROR) << "Failed to calculate offset for reserved bytes";
+			throw JsonRpc::JsonRpcError{ CORE_RPC_ERROR_CODE_INTERNAL_ERROR, "Internal error: failed to create block template" };
+		}
+	}
+	else {
+		res.reserved_offset = 0;
+	}
 
-  return true;
+	logger(RPCLOGS) << "on_getblocktemplate -- END";
+
+	res.blocktemplate_blob = toHex(block_blob);
+	res.status = CORE_RPC_STATUS_OK;
+
+	return true;
 }
 
 bool RpcServer::on_get_currency_id(const COMMAND_RPC_GET_CURRENCY_ID::request& /*req*/, COMMAND_RPC_GET_CURRENCY_ID::response& res) {
@@ -890,33 +902,37 @@ bool RpcServer::on_get_currency_id(const COMMAND_RPC_GET_CURRENCY_ID::request& /
 }
 
 bool RpcServer::on_submitblock(const COMMAND_RPC_SUBMITBLOCK::request& req, COMMAND_RPC_SUBMITBLOCK::response& res) {
-  if (req.size() != 1) {
-    throw JsonRpc::JsonRpcError{ CORE_RPC_ERROR_CODE_WRONG_PARAM, "Wrong param" };
-  }
+	logger(RPCLOGS) << "on_submitblock -- START";
+	if (req.size() != 1) {
+		logger(RPCLOGS) << "Wrong param";
+		throw JsonRpc::JsonRpcError{ CORE_RPC_ERROR_CODE_WRONG_PARAM, "Wrong param" };
+	}
 
-  BinaryArray blockblob;
-  if (!fromHex(req[0], blockblob)) {
-    throw JsonRpc::JsonRpcError{ CORE_RPC_ERROR_CODE_WRONG_BLOCKBLOB, "Wrong block blob" };
-  }
+	BinaryArray blockblob;
+	if (!fromHex(req[0], blockblob)) {
+		logger(RPCLOGS) << "Wrong block blob";
+		throw JsonRpc::JsonRpcError{ CORE_RPC_ERROR_CODE_WRONG_BLOCKBLOB, "Wrong block blob" };
+	}
 
-  auto blockToSend = blockblob;
-  auto submitResult = m_core.submitBlock(std::move(blockblob));
-  if (submitResult != error::AddBlockErrorCondition::BLOCK_ADDED) {
-    throw JsonRpc::JsonRpcError{ CORE_RPC_ERROR_CODE_BLOCK_NOT_ACCEPTED, "Block not accepted" };
-  }
+	auto blockToSend = blockblob;
+	auto submitResult = m_core.submitBlock(std::move(blockblob));
+	if (submitResult != error::AddBlockErrorCondition::BLOCK_ADDED) {
+		logger(RPCLOGS) << "Block not accepted";
+		throw JsonRpc::JsonRpcError{ CORE_RPC_ERROR_CODE_BLOCK_NOT_ACCEPTED, "Block not accepted" };
+	}
 
-  if (submitResult == error::AddBlockErrorCode::ADDED_TO_MAIN
-      || submitResult == error::AddBlockErrorCode::ADDED_TO_ALTERNATIVE_AND_SWITCHED) {
-    NOTIFY_NEW_BLOCK::request newBlockMessage;
-    newBlockMessage.b = prepareRawBlockLegacy(std::move(blockToSend));
-    newBlockMessage.hop = 0;
-    newBlockMessage.current_blockchain_height = m_core.getTopBlockIndex() + 1; //+1 because previous version of core sent m_blocks.size()
+	if (submitResult == error::AddBlockErrorCode::ADDED_TO_MAIN
+		|| submitResult == error::AddBlockErrorCode::ADDED_TO_ALTERNATIVE_AND_SWITCHED) {
+		NOTIFY_NEW_BLOCK::request newBlockMessage;
+		newBlockMessage.b = prepareRawBlockLegacy(std::move(blockToSend));
+		newBlockMessage.hop = 0;
+		newBlockMessage.current_blockchain_height = m_core.getTopBlockIndex() + 1; //+1 because previous version of core sent m_blocks.size()
 
-    m_protocol.relayBlock(newBlockMessage);
-  }
-
-  res.status = CORE_RPC_STATUS_OK;
-  return true;
+		m_protocol.relayBlock(newBlockMessage);
+	}
+	logger(RPCLOGS) << "on_submitblock -- END";
+	res.status = CORE_RPC_STATUS_OK;
+	return true;
 }
 
 RawBlockLegacy RpcServer::prepareRawBlockLegacy(BinaryArray&& blockBlob) {
@@ -1000,20 +1016,23 @@ bool RpcServer::on_get_block_header_by_hash(const COMMAND_RPC_GET_BLOCK_HEADER_B
 }
 
 bool RpcServer::on_get_block_header_by_height(const COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::request& req, COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::response& res) {
-  if (m_core.getTopBlockIndex() < req.height) {
-    throw JsonRpc::JsonRpcError{ CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT,
-      std::string("To big height: ") + std::to_string(req.height) + ", current blockchain height = " + std::to_string(m_core.getTopBlockIndex()) };
-  }
+	logger(RPCLOGS) << "on_get_block_header_by_height -- START";
+	if (m_core.getTopBlockIndex() < req.height) {
+		logger(RPCLOGS) << std::string("Too big height: ") + std::to_string(req.height) + ", current blockchain height = " + std::to_string(m_core.getTopBlockIndex());
+		throw JsonRpc::JsonRpcError{ CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT,
+		  std::string("To big height: ") + std::to_string(req.height) + ", current blockchain height = " + std::to_string(m_core.getTopBlockIndex()) };
+	}
 
-uint32_t index = static_cast<uint32_t>(req.height);
-  auto block = m_core.getBlockByIndex(index);
-  CachedBlock cachedBlock(block);
-assert(cachedBlock.getBlockIndex() == req.height);
-  fill_block_header_response(block, false, index, cachedBlock.getBlockHash(), res.block_header);
-  res.status = CORE_RPC_STATUS_OK;
-  return true;
+	uint32_t index = static_cast<uint32_t>(req.height);
+	auto block = m_core.getBlockByIndex(index);
+	CachedBlock cachedBlock(block);
+	logger(RPCLOGS) << "cachedBlock.getBlockIndex() == " << cachedBlock.getBlockIndex() << ", req.height == " << req.height;
+	assert(cachedBlock.getBlockIndex() == req.height);
+	fill_block_header_response(block, false, index, cachedBlock.getBlockHash(), res.block_header);
+	logger(RPCLOGS) << "on_get_block_header_by_height -- END";
+	res.status = CORE_RPC_STATUS_OK;
+	return true;
 }
-
 
 bool RpcServer::on_get_block_headers_range(const COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::request& req, COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::response& res, JsonRpc::JsonRpcError& error_resp) {
 	// TODO: change usage to jsonRpcHandlers?
