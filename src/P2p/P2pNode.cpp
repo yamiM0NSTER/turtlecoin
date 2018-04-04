@@ -212,6 +212,7 @@ void P2pNode::acceptLoop()
 		}
 		catch (InterruptedException&)
 		{
+			logger(INFO) << "P2pNode::acceptLoop() InterruptedException";
 			//break;
 		}
 		catch (const std::exception& e)
