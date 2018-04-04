@@ -191,7 +191,8 @@ bool CryptoNoteProtocolHandler::start_sync(CryptoNoteConnectionContext& context)
 
     NOTIFY_REQUEST_CHAIN::request r = boost::value_initialized<NOTIFY_REQUEST_CHAIN::request>();
     r.block_ids = m_core.buildSparseChain();
-    logger(Logging::TRACE) << context << "-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size();
+    logger(Logging::INFO) << context << "-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size();
+	//logger(Logging::TRACE) << context << "-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size();
     post_notify<NOTIFY_REQUEST_CHAIN>(*m_p2p, r, context);
   }
 
@@ -226,42 +227,57 @@ uint32_t CryptoNoteProtocolHandler::get_current_blockchain_height() {
   return m_core.getTopBlockIndex() + 1;
 }
 
-bool CryptoNoteProtocolHandler::process_payload_sync_data(const CORE_SYNC_DATA& hshd, CryptoNoteConnectionContext& context, bool is_inital) {
-  if (context.m_state == CryptoNoteConnectionContext::state_befor_handshake && !is_inital)
-    return true;
+bool CryptoNoteProtocolHandler::process_payload_sync_data(const CORE_SYNC_DATA& hshd, CryptoNoteConnectionContext& context, bool is_inital)
+{
+	if (context.m_state == CryptoNoteConnectionContext::state_befor_handshake && !is_inital)
+		return true;
 
-  if (context.m_state == CryptoNoteConnectionContext::state_synchronizing) {
-  } else if (m_core.hasBlock(hshd.top_id)) {
-    if (is_inital) {
-      on_connection_synchronized();
-      context.m_state = CryptoNoteConnectionContext::state_pool_sync_required;
-    } else {
-      context.m_state = CryptoNoteConnectionContext::state_normal;
-    }
-  } else {
-    int64_t diff = static_cast<int64_t>(hshd.current_height) - static_cast<int64_t>(get_current_blockchain_height());
+	if (context.m_state == CryptoNoteConnectionContext::state_synchronizing)
+	{
+		logger(Logging::INFO, Logging::CYAN) << "Syncing...";
+	}
+	else if (m_core.hasBlock(hshd.top_id))
+	{
+		if (is_inital)
+		{
+			on_connection_synchronized();
+			context.m_state = CryptoNoteConnectionContext::state_pool_sync_required;
+		}
+		else
+		{
+			context.m_state = CryptoNoteConnectionContext::state_normal;
+		}
+	}
+	else
+	{
+		int64_t diff = static_cast<int64_t>(hshd.current_height) - static_cast<int64_t>(get_current_blockchain_height());
 
-    logger(diff >= 0 ? (is_inital ? Logging::INFO : Logging::DEBUGGING) : Logging::TRACE, Logging::BRIGHT_GREEN) << context <<
-      "Your TurtleCoin node is syncing with the network. You are "
-      // << get_current_blockchain_height() << " -> " << hshd.current_height
-      << std::abs(diff) << " blocks (" << std::abs(diff) / (24 * 60 * 60 / m_currency.difficultyTarget()) << " days) "
-      << (diff >= 0 ? std::string("behind") : std::string("ahead of")) << " the Hare. Slow and steady wins the race! " << std::endl << "TurtleCoin is now syncing with the network";
+		logger(diff >= 0 ? (is_inital ? Logging::INFO : Logging::INFO) : Logging::TRACE, Logging::BRIGHT_GREEN) << context <<
+		//logger(diff >= 0 ? (is_inital ? Logging::INFO : Logging::DEBUGGING) : Logging::TRACE, Logging::BRIGHT_GREEN) << context <<
+			"Your TurtleCoin node is syncing with the network. You are "
+			// << get_current_blockchain_height() << " -> " << hshd.current_height
+			<< std::abs(diff) << " blocks (" << std::abs(diff) / (24 * 60 * 60 / m_currency.difficultyTarget()) << " days) "
+			<< (diff >= 0 ? std::string("behind") : std::string("ahead of")) << " the Hare. Slow and steady wins the race! " << std::endl << "TurtleCoin is now syncing with the network";
 
-    logger(Logging::DEBUGGING) << "Remote top block height: " << hshd.current_height << ", id: " << hshd.top_id;
-    //let the socket to send response to handshake, but request callback, to let send request data after response
-    logger(Logging::TRACE) << context << "requesting synchronization";
-    context.m_state = CryptoNoteConnectionContext::state_sync_required;
-  }
+		logger(Logging::INFO) << "Remote top block height: " << hshd.current_height << ", id: " << hshd.top_id;
+		//logger(Logging::DEBUGGING) << "Remote top block height: " << hshd.current_height << ", id: " << hshd.top_id;
+		//let the socket to send response to handshake, but request callback, to let send request data after response
+		logger(Logging::INFO) << context << "requesting synchronization";
+		//logger(Logging::TRACE) << context << "requesting synchronization";
+		
+		context.m_state = CryptoNoteConnectionContext::state_sync_required;
+	}
 
-  updateObservedHeight(hshd.current_height, context);
-  context.m_remote_blockchain_height = hshd.current_height;
+	updateObservedHeight(hshd.current_height, context);
+	context.m_remote_blockchain_height = hshd.current_height;
 
-  if (is_inital) {
-    m_peersCount++;
-    m_observerManager.notify(&ICryptoNoteProtocolObserver::peerCountUpdated, m_peersCount.load());
-  }
+	if (is_inital)
+	{
+		m_peersCount++;
+		m_observerManager.notify(&ICryptoNoteProtocolObserver::peerCountUpdated, m_peersCount.load());
+	}
 
-  return true;
+	return true;
 }
 
 bool CryptoNoteProtocolHandler::get_payload_sync_data(CORE_SYNC_DATA& hshd) {
