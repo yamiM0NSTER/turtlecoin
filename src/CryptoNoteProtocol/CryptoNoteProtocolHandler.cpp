@@ -183,7 +183,8 @@ void CryptoNoteProtocolHandler::stop() {
 }
 
 bool CryptoNoteProtocolHandler::start_sync(CryptoNoteConnectionContext& context) {
-  logger(Logging::TRACE) << context << "Starting synchronization";
+  logger(Logging::INFO) << context << "Starting synchronization";
+  //logger(Logging::TRACE) << context << "Starting synchronization";
 
   if (context.m_state == CryptoNoteConnectionContext::state_synchronizing) {
     assert(context.m_needed_objects.empty());
@@ -234,7 +235,7 @@ bool CryptoNoteProtocolHandler::process_payload_sync_data(const CORE_SYNC_DATA& 
 
 	if (context.m_state == CryptoNoteConnectionContext::state_synchronizing)
 	{
-		logger(Logging::INFO, Logging::CYAN) << "Syncing...";
+		logger(Logging::INFO) << context << "Syncing...";
 	}
 	else if (m_core.hasBlock(hshd.top_id))
 	{
@@ -262,8 +263,7 @@ bool CryptoNoteProtocolHandler::process_payload_sync_data(const CORE_SYNC_DATA& 
 		logger(Logging::INFO) << "Remote top block height: " << hshd.current_height << ", id: " << hshd.top_id;
 		//logger(Logging::DEBUGGING) << "Remote top block height: " << hshd.current_height << ", id: " << hshd.top_id;
 		//let the socket to send response to handshake, but request callback, to let send request data after response
-		logger(Logging::INFO) << context << "requesting synchronization";
-		//logger(Logging::TRACE) << context << "requesting synchronization";
+		logger(Logging::TRACE) << context << "requesting synchronization";
 		
 		context.m_state = CryptoNoteConnectionContext::state_sync_required;
 	}
@@ -326,7 +326,8 @@ int CryptoNoteProtocolHandler::handleCommand(bool is_notify, int command, const 
 #undef HANDLE_NOTIFY
 
 int CryptoNoteProtocolHandler::handle_notify_new_block(int command, NOTIFY_NEW_BLOCK::request& arg, CryptoNoteConnectionContext& context) {
-  logger(Logging::TRACE) << context << "NOTIFY_NEW_BLOCK (hop " << arg.hop << ")";
+  logger(Logging::INFO, Logging::CYAN) << context << "NOTIFY_NEW_BLOCK (hop " << arg.hop << ")";
+  //logger(Logging::TRACE) << context << "NOTIFY_NEW_BLOCK (hop " << arg.hop << ")";
   updateObservedHeight(arg.current_blockchain_height, context);
   context.m_remote_blockchain_height = arg.current_blockchain_height;
   if (context.m_state != CryptoNoteConnectionContext::state_normal) {
@@ -351,14 +352,18 @@ int CryptoNoteProtocolHandler::handle_notify_new_block(int command, NOTIFY_NEW_B
     } else {
       logger(Logging::TRACE) << context << "Block already exists";
     }
-  } else if (result == error::AddBlockErrorCondition::BLOCK_REJECTED) {
+  }
+  else if (result == error::AddBlockErrorCondition::BLOCK_REJECTED)
+  {
     context.m_state = CryptoNoteConnectionContext::state_synchronizing;
     NOTIFY_REQUEST_CHAIN::request r = boost::value_initialized<NOTIFY_REQUEST_CHAIN::request>();
     r.block_ids = m_core.buildSparseChain();
-    logger(Logging::TRACE) << context << "-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size();
+    logger(Logging::INFO, Logging::CYAN) << context << "-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size();
+	//logger(Logging::TRACE) << context << "-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size();
     post_notify<NOTIFY_REQUEST_CHAIN>(*m_p2p, r, context);
   } else {
-    logger(Logging::DEBUGGING) << context << "Block verification failed, dropping connection: " << result.message();
+	logger(Logging::INFO, Logging::CYAN) << context << "Block verification failed, dropping connection: " << result.message() << " CryptoNoteConnectionContext: " << get_protocol_state_string(context.m_state);
+	//logger(Logging::DEBUGGING) << context << "Block verification failed, dropping connection: " << result.message();
     context.m_state = CryptoNoteConnectionContext::state_shutdown;
   }
 
