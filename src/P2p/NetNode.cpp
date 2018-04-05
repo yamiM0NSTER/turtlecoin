@@ -1382,7 +1382,8 @@ std::string print_peerlist_to_string(const std::list<PeerlistEntry>& pl) {
         LevinProtocol::Command cmd;
 
         for (;;) {
-          if (ctx.m_state == CryptoNoteConnectionContext::state_sync_required) {
+          if (ctx.m_state == CryptoNoteConnectionContext::state_sync_required)
+		  {
             ctx.m_state = CryptoNoteConnectionContext::state_synchronizing;
             m_payload_handler.start_sync(ctx);
           } else if (ctx.m_state == CryptoNoteConnectionContext::state_pool_sync_required) {

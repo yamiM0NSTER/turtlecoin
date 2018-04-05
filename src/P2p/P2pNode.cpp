@@ -196,41 +196,58 @@ void P2pNode::load(std::istream& in) {
   CryptoNote::serialize(*this, a);
 }
 
-void P2pNode::acceptLoop() {
-  while (!m_stopRequested) {
-    try {
-      auto connection = m_listener.accept();
-      auto ctx = new P2pContext(m_dispatcher, std::move(connection), true, 
-        getRemoteAddress(connection), m_cfg.getTimedSyncInterval(), getGenesisPayload());
-      logger(INFO) << "Incoming connection from " << ctx->getRemoteAddress();
-      workingContextGroup.spawn([this, ctx] {
-        preprocessIncomingConnection(ContextPtr(ctx));
-      });
-    } catch (InterruptedException&) {
-      break;
-    } catch (const std::exception& e) {
-      logger(WARNING) << "Exception in acceptLoop: " << e.what();
-    }
-  }
+void P2pNode::acceptLoop()
+{
+	while (!m_stopRequested)
+	{
+		try
+		{
+			auto connection = m_listener.accept();
+			auto ctx = new P2pContext(m_dispatcher, std::move(connection), true,
+				getRemoteAddress(connection), m_cfg.getTimedSyncInterval(), getGenesisPayload());
+			logger(INFO) << "Incoming connection from " << ctx->getRemoteAddress();
+			workingContextGroup.spawn([this, ctx] {
+				preprocessIncomingConnection(ContextPtr(ctx));
+			});
+		}
+		catch (InterruptedException&)
+		{
+			logger(INFO) << "P2pNode::acceptLoop() InterruptedException";
+			//break;
+		}
+		catch (const std::exception& e)
+		{
+			logger(WARNING) << "Exception in acceptLoop: " << e.what();
+		}
+	}
 
-  logger(DEBUGGING) << "acceptLoop finished";
+	logger(DEBUGGING) << "acceptLoop finished";
 }
 
-void P2pNode::connectorLoop() {
-  while (!m_stopRequested) {
-    try {
-      connectPeers();
-      m_connectorTimer.sleep(m_cfg.getConnectInterval());
-    } catch (InterruptedException&) {
-      break;
-    } catch (const std::exception& e) {
-      logger(WARNING) << "Exception in connectorLoop: " << e.what();
-    }
-  }
+void P2pNode::connectorLoop()
+{
+	while (!m_stopRequested)
+	{
+		try
+		{
+			connectPeers();
+			m_connectorTimer.sleep(m_cfg.getConnectInterval());
+		}
+		catch (InterruptedException&)
+		{
+			break;
+		}
+		catch (const std::exception& e)
+		{
+			logger(WARNING) << "Exception in connectorLoop: " << e.what();
+		}
+	}
 }
 
-void P2pNode::connectPeers() {
-  if (!m_cfg.getExclusiveNodes().empty()) {
+void P2pNode::connectPeers()
+{
+  if (!m_cfg.getExclusiveNodes().empty())
+  {
     connectPeerList(m_cfg.getExclusiveNodes());
     return;
   }
