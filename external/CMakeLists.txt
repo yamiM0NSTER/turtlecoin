@@ -1,6 +1,7 @@
 set(UPNPC_BUILD_STATIC ON CACHE BOOL "Build static library")
 set(UPNPC_BUILD_SHARED OFF CACHE BOOL "Build shared library")
 set(UPNPC_BUILD_TESTS OFF CACHE BOOL "Build test executables")
+set(WITH_MD_LIBRARY OFF CACHE BOOL "Code Generation for static library")
 
 add_subdirectory(miniupnpc)
 add_subdirectory(gtest)
@@ -8,7 +9,7 @@ add_subdirectory(gtest)
 if(MSVC)
     include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR} ../version)
     add_subdirectory(rocksDB EXCLUDE_FROM_ALL)
-    set_property(TARGET upnpc-static gtest gtest_main rocksdblib PROPERTY FOLDER "external")
+    set_property(TARGET upnpc-static gtest gtest_main rocksdb PROPERTY FOLDER "external")
 elseif(NOT MSVC)
     set_property(TARGET upnpc-static gtest gtest_main PROPERTY FOLDER "external")
     add_custom_target(
