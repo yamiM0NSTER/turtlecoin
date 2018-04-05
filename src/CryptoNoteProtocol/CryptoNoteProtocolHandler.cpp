@@ -260,7 +260,7 @@ bool CryptoNoteProtocolHandler::process_payload_sync_data(const CORE_SYNC_DATA& 
 			<< std::abs(diff) << " blocks (" << std::abs(diff) / (24 * 60 * 60 / m_currency.difficultyTarget()) << " days) "
 			<< (diff >= 0 ? std::string("behind") : std::string("ahead of")) << " the Hare. Slow and steady wins the race! " << std::endl << "TurtleCoin is now syncing with the network";
 
-		logger(Logging::INFO) << "Remote top block height: " << hshd.current_height << ", id: " << hshd.top_id;
+		logger(Logging::INFO) << context << "Remote top block height: " << hshd.current_height << ", id: " << hshd.top_id;
 		//logger(Logging::DEBUGGING) << "Remote top block height: " << hshd.current_height << ", id: " << hshd.top_id;
 		//let the socket to send response to handshake, but request callback, to let send request data after response
 		logger(Logging::TRACE) << context << "requesting synchronization";
